@@ -1,0 +1,440 @@
+<html>
+
+<head>
+    <title>3D bin packing</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css"
+        integrity="sha384-Vkoo8x4CGsO3+Hhxv8T/Q5PaXtkKtu6ug5TOeNV6gBiFeWPGFN9MuhOf23Q9Ifjh" crossorigin="anonymous">
+
+</head>
+
+<body>
+    <div class="container">
+        <h1 style="margin: 2rem 0;">3D BIN PACKING</h1>
+        <div class="row">
+            <div class="col-3">
+                <div class="card">
+                    <div class="card-header">
+                        ADD BOX
+                    </div>
+                    <div style="padding: 1rem;">
+                        WIDTH:
+                        <input name="width" class="form-control" placeholder="0.00" id="width-input" type="number"
+                            step="0.01" value="1.0">
+                        HEIGHT:
+                        <input name="height" class="form-control" placeholder="0.00" id="height-input" type="number"
+                            step="0.01" value="1.0">
+                        DEPTH:
+                        <input name="depth" class="form-control" placeholder="0.00" id="depth-input" type="number"
+                            step="0.01" value="1.0">
+                        QUANTITY:
+                        <input name="quantity" class="form-control" placeholder="0" id="quantity-input" type="number"
+                            value="1">
+
+
+                    </div>
+                    <button type="button" class="btn btn-primary" id="add-button">ADD</button>
+                </div>
+                <div class="card" style="margin-top:1rem;">
+                    <div class="card-header">
+                        CONTAINER
+                    </div>
+                    <div style="padding: 1rem;">
+                        WIDTH:
+                        <input name="width" class="form-control" placeholder="0.00" id="container-width-input"
+                            type="number" step="0.01" value="5.0">
+                        HEIGHT:
+                        <input name="height" class="form-control" placeholder="0.00" id="container-height-input"
+                            type="number" step="0.01" value="5.0">
+                        DEPTH:
+                        <input name="depth" class="form-control" placeholder="0.00" id="container-depth-input"
+                            type="number" step="0.01" value="9.0">
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-9">
+                <div class="card">
+                    <div class="card-header">
+                        3D View
+                    </div>
+                    <div class="card-body">
+                        <canvas id="canvas" style="width: 100%;"></canvas>
+                    </div>
+                    <button type="button" class="btn btn-primary" id="solve-button">
+                        SOLVE
+                        <span class="spinner-border spinner-border-sm" role="status" id="spinner"
+                            style="display:none;"></span>
+
+                    </button>
+                </div>
+
+            </div>
+        </div>
+        <div class="row" style="margin-top:1rem;">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-body">
+                        <table class="table" id="box-table">
+                            <h2>BOXES</h2>
+                            <thead>
+                                <tr>
+                                    <th scope="col">COLOR</th>
+                                    <th scope="col">WIDTH</th>
+                                    <th scope="col">HEIGHT</th>
+                                    <th scope="col">DEPTH</th>
+                                    <th scope="col">QUANTITY</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="three.js"></script>
+    <script src="https://code.jquery.com/jquery-3.4.1.slim.min.js"
+        integrity="sha384-J6qa4849blE2+poT4WnyKhv5vZF5SrPo0iEjwBvKU7imGFAV0wwj1yYfoRSJoZ+n"
+        crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.0/dist/umd/popper.min.js"
+        integrity="sha384-Q6E9RHvbIyZFJoft+2mJbHaEWldlvI9IOYy5n3zV9zzTtmI3UksdQRVvoxMfooAo"
+        crossorigin="anonymous"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/js/bootstrap.min.js"
+        integrity="sha384-wfSDF2E50Y2D1uUdj0O3uMBJnjuUD4Ih7YwaYd1iqfktj0Uod8GCExl3Og8ifwB6"
+        crossorigin="anonymous"></script>
+
+
+    <script>
+        var generateX = 0;
+        $('document').ready(function () {
+            $('#add-button').click(function () {
+                var boxColor = '#' + (Math.random() * 0xFFFFFF << 0).toString(16);
+                var boxWidth = $('#width-input').val();
+                var boxHeight = $('#height-input').val();
+                var boxDepth = $('#depth-input').val();
+                var boxQuantity = $('#quantity-input').val();
+                for (var i = 0; i < boxQuantity; i++) {
+                    var newBox = new ColorBox(boxColor, parseFloat(boxWidth), parseFloat(boxHeight), parseFloat(boxDepth));
+                    newBox.mesh.position.z = -1 - newBox.size.z / 2;
+                    newBox.mesh.position.x = generateX + newBox.size.x / 2;
+                    generateX = generateX + 0.1 + newBox.size.x;
+                    colorBoxes.push(newBox);
+                }
+
+                if (boxWidth && boxHeight && boxDepth && boxQuantity) {
+                    $("#box-table").append(
+                        '<tr><td>' + '<span font-size:4rem; style="color:' + boxColor + '">&#x25CF;</span></td><td>' + boxWidth
+                        + '</td><td>' + boxHeight
+                        + '</td><td>' + boxDepth
+                        + '</td><td>' + boxQuantity + '</td></tr>');
+                }
+            });
+        })
+    </script>
+
+    <script src="OrbitControls.js"></script>
+    <script>
+
+        var canvas = document.getElementById('canvas');
+        var heightRatio = 0.7;
+        canvas.height = canvas.width * heightRatio;
+        var renderer = new THREE.WebGLRenderer({
+            canvas: canvas,
+            antialias: true,
+            alpha: true,
+        });
+        renderer.setClearColor(0xffffff);
+        renderer.setPixelRatio(window.devicePixelRatio);
+        renderer.setSize(canvas.clientWidth, canvas.clientHeight);
+
+        var scene = new THREE.Scene();
+
+        var camera = new THREE.PerspectiveCamera(50, renderer.getSize().width / renderer.getSize().height);
+        camera.position.x = 11;
+        camera.position.z = 9;
+        camera.position.y = 7;
+
+
+        controls = new OrbitControls(camera, renderer.domElement)
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.5;
+        controls.enableZoom = true;
+
+        function animate() {
+            controls.update();
+            requestAnimationFrame(animate);
+            renderer.render(scene, camera);
+        }
+        animate()
+
+
+
+        // ambient light
+        var abmitLight = new THREE.AmbientLight(0xffffff, 0.6);
+        scene.add(abmitLight);
+
+        var directionalLight = new THREE.DirectionalLight(0xFFFFFF, 0.4);
+        directionalLight.position.set(3, 4, 5);
+        directionalLight.target = new THREE.Object3D();
+        scene.add(directionalLight);
+
+
+        var planeMaterial = new THREE.MeshBasicMaterial({ color: "#FFFFFF" });
+        var plane = new THREE.Mesh(new THREE.PlaneBufferGeometry(2000, 2000), planeMaterial);
+        plane.rotateX(- Math.PI / 2);
+        scene.add(plane);
+
+
+
+
+
+
+
+
+
+        class Solver {
+            constructor(container, boxes) {
+                this.container = container;
+                this.unPackedBoxes = [].concat(boxes);
+                this.unPackedBoxes.reverse();
+            }
+            _removeByIndex(array, index) {
+                array.splice(index, 1);
+            }
+            solve() {
+                var candidatePosition = [new Point(0, 0, 0)];
+                var unPackableBoxes = [];
+                while (this.unPackedBoxes.length != 0) {
+                    // pick a box
+                    var box = this.unPackedBoxes.pop();
+
+                    candidatePosition.sort((a, b) => {
+                        if (a.y != b.y) return a.y - b.y;
+                        if (a.z != b.z) return a.z - b.z;
+                        return a.x - b.x;
+                    });
+
+                    var boxCanFit = false;
+                    for (var i = 0; i < candidatePosition.length; i++) {
+                        box.position = candidatePosition[i];
+
+                        var dimension = box.size;
+                        var rotatedDimension = [
+                            new Point(dimension.x, dimension.y, dimension.z),
+                            new Point(dimension.x, dimension.z, dimension.y),
+                            new Point(dimension.y, dimension.x, dimension.z),
+                            new Point(dimension.y, dimension.z, dimension.x),
+                            new Point(dimension.z, dimension.x, dimension.y),
+                            new Point(dimension.z, dimension.y, dimension.x)];
+
+                        for (var j = 0; j < rotatedDimension.length; j++) {
+                            box.size = rotatedDimension[j];
+                            if (this.container.canHold(box)) {
+                                this.container.put(box);
+
+                                this._removeByIndex(candidatePosition, i);
+
+                                candidatePosition.push(new Point(box.position.x + box.size.x, box.position.y, box.position.z));
+                                candidatePosition.push(new Point(box.position.x, box.position.y + box.size.y, box.position.z));
+                                candidatePosition.push(new Point(box.position.x, box.position.y, box.position.z + box.size.z));
+                                box.refresh();
+                                boxCanFit = true;
+                                box.mesh.visible = false;
+                                break;
+                            }
+                        }
+                        if (boxCanFit) {
+                            break;
+                        }
+                    }
+                    if (boxCanFit == false) {
+                        box.mesh.visible = false;
+                        unPackableBoxes.push(box);
+                    }
+                }
+                return unPackableBoxes;
+            }
+
+        }
+        class Point {
+            constructor(x, y, z) {
+                this.x = x;
+                this.y = y;
+                this.z = z;
+            }
+        }
+        class Container {
+            constructor(width, height, depth) {
+                this.size = new Point(width, height, depth);
+                this.boxes = new Array();
+            }
+            empty() {
+                this.boxes = new Array();
+            }
+            canHold(box) {
+                var collide = false;
+                this.boxes.forEach(boxInContainer => {
+                    if (Box.collide(box, boxInContainer)) {
+                        collide = true;
+                    }
+                });
+                if (collide || box.position.x < 0
+                    || box.position.y < 0
+                    || box.position.z < 0
+                    || box.position.x + box.size.x > this.size.x
+                    || box.position.y + box.size.y > this.size.y
+                    || box.position.z + box.size.z > this.size.z) {
+                    return false;
+                }
+                return true;
+            }
+            put(box) {
+                this.boxes.push(box);
+            }
+        }
+        class Box {
+            constructor(width, height, depth) {
+                this.size = new Point(width, height, depth);
+                this.position = new Point(0, 0, 0);
+            }
+            static collide(a, b) {
+                var aCenterX = a.position.x + a.size.x / 2;
+                var bCenterX = b.position.x + b.size.x / 2;
+                var xDistance = Math.abs(aCenterX - bCenterX);
+
+                var aCenterY = a.position.y + a.size.y / 2;
+                var bCenterY = b.position.y + b.size.y / 2;
+                var yDistance = Math.abs(aCenterY - bCenterY);
+
+                var aCenterZ = a.position.z + a.size.z / 2;
+                var bCenterZ = b.position.z + b.size.z / 2;
+                var zDistance = Math.abs(aCenterZ - bCenterZ);
+
+                if (xDistance < (a.size.x + b.size.x) / 2
+                    && yDistance < (a.size.y + b.size.y) / 2
+                    && zDistance < (a.size.z + b.size.z) / 2) {
+                    return true;
+                }
+                else {
+                    return false;
+                }
+            }
+        }
+        class ColorBox extends Box {
+            constructor(color, width, height, depth) {
+                super(width, height, depth);
+                this.color = color;
+                this._addToScene();
+            }
+            _addToScene() {
+                var material = new THREE.MeshPhongMaterial({
+                    color: this.color,
+                    opacity: 0.9,
+                    transparent: true,
+                    polygonOffset: true,
+                    polygonOffsetFactor: 1, // positive value pushes polygon further away
+                    polygonOffsetUnits: 1
+                });
+
+                var geometry = new THREE.BoxGeometry(this.size.x, this.size.y, this.size.z);
+
+                this.mesh = new THREE.Mesh(geometry, material);
+
+
+
+
+
+                this.mesh.position.x = this.position.x + this.size.x / 2;
+                this.mesh.position.y = this.position.y + this.size.y / 2;
+                this.mesh.position.z = this.position.z + this.size.z / 2;
+
+                scene.add(this.mesh);
+            }
+            refresh() {
+                scene.remove(this.mesh)
+                this._addToScene()
+            }
+            set position(p) {
+                this._position = p;
+                if (this.mesh) {
+                    this.mesh.position.x = this._position.x + this.size.x / 2;
+                    this.mesh.position.y = this._position.y + this.size.y / 2;
+                    this.mesh.position.z = this._position.z + this.size.z / 2;
+                }
+            }
+            get position() {
+                return this._position;
+            }
+        }
+
+        var colorBoxes = [];
+        var container = new Container();
+
+
+
+
+        var containerMesh = null;
+
+        function containerChanged() {
+            containerWidth = parseFloat($("#container-width-input").val())
+            containerHeight = parseFloat($("#container-height-input").val())
+            containerDepth = parseFloat($("#container-depth-input").val())
+
+            container.size = new Point(containerWidth, containerHeight, containerDepth);
+
+            controls.target.set(container.size.x / 2, container.size.y / 2, container.size.z / 2);
+
+            var material = new THREE.LineBasicMaterial({
+                color: 0x0,
+                linewidth: 1,
+            });
+            var geometry = new THREE.EdgesGeometry(new THREE.BoxGeometry(container.size.x, container.size.y, container.size.z));
+            if (containerMesh)
+                scene.remove(containerMesh);
+            containerMesh = new THREE.LineSegments(geometry, material);
+            containerMesh.position.x = container.size.x / 2;
+            containerMesh.position.y = container.size.y / 2;
+            containerMesh.position.z = container.size.z / 2;
+            scene.add(containerMesh);
+            renderer.render(scene, camera);
+        }
+        containerChanged();
+        $(document).on("input propertychange", "#container-width-input", containerChanged);
+        $(document).on("input propertychange", "#container-height-input", containerChanged);
+        $(document).on("input propertychange", "#container-depth-input", containerChanged);
+
+
+        $('#solve-button').click(function () {
+            generateX = 0;
+            container.empty();
+            var solver = new Solver(container, colorBoxes);
+            $('#spinner').css("display", "inline-block");
+
+            // avoid spinner from jammed
+            setTimeout(() => {
+                solver.solve();
+                $('#spinner').css("display", "none");
+                renderer.render(scene, camera);
+                var i = 0;
+                function anim() {
+                    container.boxes[i++].mesh.visible = true;
+                    if (i < container.boxes.length)
+                        setTimeout(anim, 20);
+                }
+                anim()
+            }, 10)
+        });
+
+
+
+
+
+    </script>
+
+</body>
+
+</html>
