@@ -109,20 +109,59 @@
 
 
     <script>
+
+    </script>
+
+    <script src="OrbitControls.js"></script>
+    <script type="module">
+        import { BinPackingSolver, Vector3D, Box, Container } from './BinPackingSolver.js'
+
+        class RenderableBox extends Box {
+            constructor(color, scene, width, height, depth) {
+                super(width, height, depth);
+                this.color = color;
+                var material = new THREE.MeshStandardMaterial({
+                    color: color,
+                    opacity: 0.9,
+                    matalness:0.2,
+                    roughness:1,
+                    transparent: true,
+                    polygonOffset: true,
+                    polygonOffsetFactor: 1,
+                    polygonOffsetUnits: 1
+                });
+
+                var geometry = new THREE.BoxGeometry(1, 1, 1);
+                this.mesh = new THREE.Mesh(geometry, material);
+                this.scene = scene;
+                this.scene.add(this.mesh);
+            }
+            render() {
+                this.mesh.scale.x = this.size.x;
+                this.mesh.scale.y = this.size.y;
+                this.mesh.scale.z = this.size.z;
+                this.mesh.position.x = this.position.x + this.size.x / 2;
+                this.mesh.position.y = this.position.y + this.size.y / 2;
+                this.mesh.position.z = this.position.z + this.size.z / 2;
+            }
+        }
+
         var generateX = 0;
         $('document').ready(function () {
             $('#add-button').click(function () {
                 var boxColor = '#' + (Math.random() * 0xFFFFFF << 0).toString(16);
-                var boxWidth = $('#width-input').val();
-                var boxHeight = $('#height-input').val();
-                var boxDepth = $('#depth-input').val();
-                var boxQuantity = $('#quantity-input').val();
+                var boxWidth = parseFloat($('#width-input').val());
+                var boxHeight = parseFloat($('#height-input').val());
+                var boxDepth = parseFloat( $('#depth-input').val());
+                var boxQuantity = parseInt($('#quantity-input').val());
                 for (var i = 0; i < boxQuantity; i++) {
-                    var newBox = new ColorBox(boxColor, parseFloat(boxWidth), parseFloat(boxHeight), parseFloat(boxDepth));
+                    var newBox = new RenderableBox(boxColor, scene, boxWidth, boxHeight, boxDepth);
+                    newBox.size = new Vector3D(parseFloat(boxWidth), parseFloat(boxHeight), parseFloat(boxDepth));
                     newBox.mesh.position.z = -1 - newBox.size.z / 2;
                     newBox.mesh.position.x = generateX + newBox.size.x / 2;
                     generateX = generateX + 0.1 + newBox.size.x;
-                    colorBoxes.push(newBox);
+                    newBox.render();
+                    RenderableBoxes.push(newBox);
                 }
 
                 if (boxWidth && boxHeight && boxDepth && boxQuantity) {
@@ -134,11 +173,6 @@
                 }
             });
         })
-    </script>
-
-    <script src="OrbitControls.js"></script>
-    <script>
-
         var canvas = document.getElementById('canvas');
         var heightRatio = 0.7;
         canvas.height = canvas.width * heightRatio;
@@ -159,7 +193,7 @@
         camera.position.y = 7;
 
 
-        controls = new OrbitControls(camera, renderer.domElement)
+        var controls = new OrbitControls(camera, renderer.domElement)
         controls.enableDamping = true;
         controls.dampingFactor = 0.5;
         controls.enableZoom = true;
@@ -177,11 +211,19 @@
         var abmitLight = new THREE.AmbientLight(0xffffff, 0.6);
         scene.add(abmitLight);
 
-        var directionalLight = new THREE.DirectionalLight(0xFFFFFF, 0.4);
+        var directionalLight = new THREE.DirectionalLight(0xFFFFFF, 0.6);
         directionalLight.position.set(3, 4, 5);
         directionalLight.target = new THREE.Object3D();
         scene.add(directionalLight);
 
+            var directionalLight2 = new THREE.DirectionalLight(0xFFFFFF, 0.8);
+            directionalLight2.position.set(-3, 4, -5);
+            directionalLight2.target = new THREE.Object3D();
+            scene.add(directionalLight2);
+            var directionalLight3 = new THREE.DirectionalLight(0xFFFFFF, 0.9);
+            directionalLight2.position.set(2, 5, 4);
+            directionalLight2.target = new THREE.Object3D();
+            scene.add(directionalLight2);
 
         var planeMaterial = new THREE.MeshBasicMaterial({ color: "#FFFFFF" });
         var plane = new THREE.Mesh(new THREE.PlaneBufferGeometry(2000, 2000), planeMaterial);
@@ -195,183 +237,7 @@
 
 
 
-
-        class Solver {
-            constructor(container, boxes) {
-                this.container = container;
-                this.unPackedBoxes = [].concat(boxes);
-                this.unPackedBoxes.reverse();
-            }
-            _removeByIndex(array, index) {
-                array.splice(index, 1);
-            }
-            solve() {
-                var candidatePosition = [new Point(0, 0, 0)];
-                var unPackableBoxes = [];
-                while (this.unPackedBoxes.length != 0) {
-                    // pick a box
-                    var box = this.unPackedBoxes.pop();
-
-                    candidatePosition.sort((a, b) => {
-                        if (a.y != b.y) return a.y - b.y;
-                        if (a.z != b.z) return a.z - b.z;
-                        return a.x - b.x;
-                    });
-
-                    var boxCanFit = false;
-                    for (var i = 0; i < candidatePosition.length; i++) {
-                        box.position = candidatePosition[i];
-
-                        var dimension = box.size;
-                        var rotatedDimension = [
-                            new Point(dimension.x, dimension.y, dimension.z),
-                            new Point(dimension.x, dimension.z, dimension.y),
-                            new Point(dimension.y, dimension.x, dimension.z),
-                            new Point(dimension.y, dimension.z, dimension.x),
-                            new Point(dimension.z, dimension.x, dimension.y),
-                            new Point(dimension.z, dimension.y, dimension.x)];
-
-                        for (var j = 0; j < rotatedDimension.length; j++) {
-                            box.size = rotatedDimension[j];
-                            if (this.container.canHold(box)) {
-                                this.container.put(box);
-
-                                this._removeByIndex(candidatePosition, i);
-
-                                candidatePosition.push(new Point(box.position.x + box.size.x, box.position.y, box.position.z));
-                                candidatePosition.push(new Point(box.position.x, box.position.y + box.size.y, box.position.z));
-                                candidatePosition.push(new Point(box.position.x, box.position.y, box.position.z + box.size.z));
-                                box.refresh();
-                                boxCanFit = true;
-                                box.mesh.visible = false;
-                                break;
-                            }
-                        }
-                        if (boxCanFit) {
-                            break;
-                        }
-                    }
-                    if (boxCanFit == false) {
-                        box.mesh.visible = false;
-                        unPackableBoxes.push(box);
-                    }
-                }
-                return unPackableBoxes;
-            }
-
-        }
-        class Point {
-            constructor(x, y, z) {
-                this.x = x;
-                this.y = y;
-                this.z = z;
-            }
-        }
-        class Container {
-            constructor(width, height, depth) {
-                this.size = new Point(width, height, depth);
-                this.boxes = new Array();
-            }
-            empty() {
-                this.boxes = new Array();
-            }
-            canHold(box) {
-                var collide = false;
-                this.boxes.forEach(boxInContainer => {
-                    if (Box.collide(box, boxInContainer)) {
-                        collide = true;
-                    }
-                });
-                if (collide || box.position.x < 0
-                    || box.position.y < 0
-                    || box.position.z < 0
-                    || box.position.x + box.size.x > this.size.x
-                    || box.position.y + box.size.y > this.size.y
-                    || box.position.z + box.size.z > this.size.z) {
-                    return false;
-                }
-                return true;
-            }
-            put(box) {
-                this.boxes.push(box);
-            }
-        }
-        class Box {
-            constructor(width, height, depth) {
-                this.size = new Point(width, height, depth);
-                this.position = new Point(0, 0, 0);
-            }
-            static collide(a, b) {
-                var aCenterX = a.position.x + a.size.x / 2;
-                var bCenterX = b.position.x + b.size.x / 2;
-                var xDistance = Math.abs(aCenterX - bCenterX);
-
-                var aCenterY = a.position.y + a.size.y / 2;
-                var bCenterY = b.position.y + b.size.y / 2;
-                var yDistance = Math.abs(aCenterY - bCenterY);
-
-                var aCenterZ = a.position.z + a.size.z / 2;
-                var bCenterZ = b.position.z + b.size.z / 2;
-                var zDistance = Math.abs(aCenterZ - bCenterZ);
-
-                if (xDistance < (a.size.x + b.size.x) / 2
-                    && yDistance < (a.size.y + b.size.y) / 2
-                    && zDistance < (a.size.z + b.size.z) / 2) {
-                    return true;
-                }
-                else {
-                    return false;
-                }
-            }
-        }
-        class ColorBox extends Box {
-            constructor(color, width, height, depth) {
-                super(width, height, depth);
-                this.color = color;
-                this._addToScene();
-            }
-            _addToScene() {
-                var material = new THREE.MeshPhongMaterial({
-                    color: this.color,
-                    opacity: 0.9,
-                    transparent: true,
-                    polygonOffset: true,
-                    polygonOffsetFactor: 1, // positive value pushes polygon further away
-                    polygonOffsetUnits: 1
-                });
-
-                var geometry = new THREE.BoxGeometry(this.size.x, this.size.y, this.size.z);
-
-                this.mesh = new THREE.Mesh(geometry, material);
-
-
-
-
-
-                this.mesh.position.x = this.position.x + this.size.x / 2;
-                this.mesh.position.y = this.position.y + this.size.y / 2;
-                this.mesh.position.z = this.position.z + this.size.z / 2;
-
-                scene.add(this.mesh);
-            }
-            refresh() {
-                scene.remove(this.mesh)
-                this._addToScene()
-            }
-            set position(p) {
-                this._position = p;
-                if (this.mesh) {
-                    this.mesh.position.x = this._position.x + this.size.x / 2;
-                    this.mesh.position.y = this._position.y + this.size.y / 2;
-                    this.mesh.position.z = this._position.z + this.size.z / 2;
-                }
-            }
-            get position() {
-                return this._position;
-            }
-        }
-
-        var colorBoxes = [];
+        var RenderableBoxes = [];
         var container = new Container();
 
 
@@ -380,11 +246,11 @@
         var containerMesh = null;
 
         function containerChanged() {
-            containerWidth = parseFloat($("#container-width-input").val())
-            containerHeight = parseFloat($("#container-height-input").val())
-            containerDepth = parseFloat($("#container-depth-input").val())
+            var containerWidth = parseFloat($("#container-width-input").val())
+            var containerHeight = parseFloat($("#container-height-input").val())
+            var containerDepth = parseFloat($("#container-depth-input").val())
 
-            container.size = new Point(containerWidth, containerHeight, containerDepth);
+            container.size = new Vector3D(containerWidth, containerHeight, containerDepth);
 
             controls.target.set(container.size.x / 2, container.size.y / 2, container.size.z / 2);
 
@@ -410,25 +276,29 @@
 
         $('#solve-button').click(function () {
             generateX = 0;
-            container.empty();
-            var solver = new Solver(container, colorBoxes);
+            container.makeEmpty();
+            var solver = new BinPackingSolver(container, RenderableBoxes);
+            RenderableBoxes.forEach(b => b.mesh.visible = false);
             $('#spinner').css("display", "inline-block");
-
+            
             // avoid spinner from jammed
             setTimeout(() => {
-                solver.solve();
+                var left = solver.solve();
+                console.log(left);
                 $('#spinner').css("display", "none");
                 renderer.render(scene, camera);
                 var i = 0;
                 function anim() {
-                    container.boxes[i++].mesh.visible = true;
+                    container.boxes[i].render();
+                    container.boxes[i].mesh.visible = true;
+                    i++;
                     if (i < container.boxes.length)
                         setTimeout(anim, 20);
-                }
-                anim()
+                }  
+                if(container.boxes.length != 0)
+                    anim()
             }, 10)
         });
-
 
 
 
