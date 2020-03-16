@@ -62,8 +62,8 @@ class BinPackingSolver {
 
         this.unPackedBoxes.sort(
             (a, b) => {
-                var aArray = [a.size.x, a.size.y, a.size.z].sort();
-                var bArray = [b.size.x, b.size.y, b.size.z].sort();
+                var aArray = [a.size.x, a.size.y, a.size.z].sort((a, b) => b - a);
+                var bArray = [b.size.x, b.size.y, b.size.z].sort((a, b) => b - a);
                 for (var i = 0; i < aArray.length && i < bArray.length; i++) {
                     if (aArray[i] != bArray[i])
                         return aArray[i] - bArray[i];
@@ -134,7 +134,10 @@ class BinPackingSolver {
             }
 
             if (boxPlaced == true) {
-                this._moveBoxToShrink(box);
+                var boxMoved = this._moveBoxToShrink(box);
+                if (!boxMoved) {
+                    positionIndex = null;
+                }
                 this.container.put(box);
                 // remove old candidate position
                 this._updateCandidatePositions(candidatePosition, box, positionIndex);
@@ -168,6 +171,7 @@ class BinPackingSolver {
             moveCount--;
             boxMoved = (moveCount != 0);
         } while (boxMoved);
+        return boxMoved;
     }
 }
 

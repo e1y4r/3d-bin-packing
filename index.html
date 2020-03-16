@@ -31,8 +31,6 @@
                         QUANTITY:
                         <input name="quantity" class="form-control" placeholder="0" id="quantity-input" type="number"
                             value="1">
-
-
                     </div>
                     <button type="button" class="btn btn-primary" id="add-button">ADD</button>
                 </div>
@@ -57,7 +55,7 @@
             <div class="col-9">
                 <div class="card">
                     <div class="card-header">
-                        3D View
+                        VIEWER
                     </div>
                     <div class="card-body">
                         <canvas id="canvas" style="width: 100%;"></canvas>
@@ -95,208 +93,130 @@
             </div>
         </div>
     </div>
-
-    <script src="three.js"></script>
     <script src="https://code.jquery.com/jquery-3.4.1.slim.min.js"
         integrity="sha384-J6qa4849blE2+poT4WnyKhv5vZF5SrPo0iEjwBvKU7imGFAV0wwj1yYfoRSJoZ+n"
         crossorigin="anonymous"></script>
-    <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.0/dist/umd/popper.min.js"
-        integrity="sha384-Q6E9RHvbIyZFJoft+2mJbHaEWldlvI9IOYy5n3zV9zzTtmI3UksdQRVvoxMfooAo"
-        crossorigin="anonymous"></script>
-    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/js/bootstrap.min.js"
-        integrity="sha384-wfSDF2E50Y2D1uUdj0O3uMBJnjuUD4Ih7YwaYd1iqfktj0Uod8GCExl3Og8ifwB6"
-        crossorigin="anonymous"></script>
+    <script src="./js/lib/three.js"></script>
+    <script src="./js/lib/OrbitControls.js"></script>
 
 
-    <script>
 
-    </script>
 
-    <script src="OrbitControls.js"></script>
     <script type="module">
-        import { BinPackingSolver, Vector3D, Box, Container } from './BinPackingSolver.js'
+        import { BinPackingSolver, Vector3D, Box, Container } from './js/BinPackingSolver.js'
+        import { BoxViewer, RenderableBox, RenderableContainer } from './js/BoxViewer.js'
 
-        class RenderableBox extends Box {
-            constructor(color, scene, width, height, depth) {
-                super(width, height, depth);
-                this.color = color;
-                var material = new THREE.MeshStandardMaterial({
-                    color: color,
-                    opacity: 0.9,
-                    matalness:0.2,
-                    roughness:1,
-                    transparent: true,
-                    polygonOffset: true,
-                    polygonOffsetFactor: 1,
-                    polygonOffsetUnits: 1
-                });
 
-                var geometry = new THREE.BoxGeometry(1, 1, 1);
-                this.mesh = new THREE.Mesh(geometry, material);
-                this.scene = scene;
-                this.scene.add(this.mesh);
-            }
-            render() {
-                this.mesh.scale.x = this.size.x;
-                this.mesh.scale.y = this.size.y;
-                this.mesh.scale.z = this.size.z;
-                this.mesh.position.x = this.position.x + this.size.x / 2;
-                this.mesh.position.y = this.position.y + this.size.y / 2;
-                this.mesh.position.z = this.position.z + this.size.z / 2;
-            }
-        }
 
         var generateX = 0;
-        $('document').ready(function () {
-            $('#add-button').click(function () {
-                var boxColor = '#' + (Math.random() * 0xFFFFFF << 0).toString(16);
-                var boxWidth = parseFloat($('#width-input').val());
-                var boxHeight = parseFloat($('#height-input').val());
-                var boxDepth = parseFloat( $('#depth-input').val());
-                var boxQuantity = parseInt($('#quantity-input').val());
-                for (var i = 0; i < boxQuantity; i++) {
-                    var newBox = new RenderableBox(boxColor, scene, boxWidth, boxHeight, boxDepth);
-                    newBox.size = new Vector3D(parseFloat(boxWidth), parseFloat(boxHeight), parseFloat(boxDepth));
-                    newBox.mesh.position.z = -1 - newBox.size.z / 2;
-                    newBox.mesh.position.x = generateX + newBox.size.x / 2;
-                    generateX = generateX + 0.1 + newBox.size.x;
-                    newBox.render();
-                    RenderableBoxes.push(newBox);
-                }
+        function generateBox(color, width, height, depth) {
+            var box = new RenderableBox(color, boxViewer, width, height, depth);
+            // place new box on a line
+            box.position.z = -1 - box.size.z;
+            box.position.x = generateX;
+            generateX = generateX + 0.1 + box.size.x;
 
-                if (boxWidth && boxHeight && boxDepth && boxQuantity) {
-                    $("#box-table").append(
-                        '<tr><td>' + '<span font-size:4rem; style="color:' + boxColor + '">&#x25CF;</span></td><td>' + boxWidth
-                        + '</td><td>' + boxHeight
-                        + '</td><td>' + boxDepth
-                        + '</td><td>' + boxQuantity + '</td></tr>');
+            boxes.push(box);
+        }
+
+        function appendNewBoxInfoToTable(color, width, height, depth, quantity) {
+            $("#box-table").append(
+                '<tr><td><span font-size:4rem; style="color:' + color
+                + '">&#x25CF;</span></td><td>' + width
+                + '</td><td>' + height
+                + '</td><td>' + depth
+                + '</td><td>' + quantity + '</td></tr>');
+        }
+
+        $('#add-button').click(function () {
+            // generate random color
+            var color = '#' + (Math.random() * 0xFFFFFF << 0).toString(16);
+            // read dimension & quantity from inputs
+            var width = parseFloat($('#width-input').val());
+            var height = parseFloat($('#height-input').val());
+            var depth = parseFloat($('#depth-input').val());
+            var quantity = parseInt($('#quantity-input').val());
+
+            // if input is valid
+            if (width && height && depth && quantity) {
+                // generate #quantity boxes
+                for (var i = 0; i < quantity; i++) {
+                    generateBox(color, width, height, depth);
                 }
-            });
-        })
-        var canvas = document.getElementById('canvas');
-        var heightRatio = 0.7;
-        canvas.height = canvas.width * heightRatio;
-        var renderer = new THREE.WebGLRenderer({
-            canvas: canvas,
-            antialias: true,
-            alpha: true,
+                // add on html table
+                appendNewBoxInfoToTable(color, width, height, depth, quantity);
+            }
         });
-        renderer.setClearColor(0xffffff);
-        renderer.setPixelRatio(window.devicePixelRatio);
-        renderer.setSize(canvas.clientWidth, canvas.clientHeight);
-
-        var scene = new THREE.Scene();
-
-        var camera = new THREE.PerspectiveCamera(50, renderer.getSize().width / renderer.getSize().height);
-        camera.position.x = 11;
-        camera.position.z = 9;
-        camera.position.y = 7;
 
 
-        var controls = new OrbitControls(camera, renderer.domElement)
-        controls.enableDamping = true;
-        controls.dampingFactor = 0.5;
-        controls.enableZoom = true;
+
+        var canvas = document.getElementById('canvas');
+
+        var heightRatio = 0.7;
+        // set height of canvas according to width
+        canvas.height = canvas.width * heightRatio;
+
+        var boxViewer = new BoxViewer(canvas);
+
+        var boxes = [];
+        var container = new RenderableContainer(boxViewer);
+
 
         function animate() {
-            controls.update();
-            requestAnimationFrame(animate);
-            renderer.render(scene, camera);
+            boxViewer.update();
+            window.requestAnimationFrame(animate);
         }
-        animate()
+        animate();
 
-
-
-        // ambient light
-        var abmitLight = new THREE.AmbientLight(0xffffff, 0.6);
-        scene.add(abmitLight);
-
-        var directionalLight = new THREE.DirectionalLight(0xFFFFFF, 0.6);
-        directionalLight.position.set(3, 4, 5);
-        directionalLight.target = new THREE.Object3D();
-        scene.add(directionalLight);
-
-            var directionalLight2 = new THREE.DirectionalLight(0xFFFFFF, 0.8);
-            directionalLight2.position.set(-3, 4, -5);
-            directionalLight2.target = new THREE.Object3D();
-            scene.add(directionalLight2);
-            var directionalLight3 = new THREE.DirectionalLight(0xFFFFFF, 0.9);
-            directionalLight2.position.set(2, 5, 4);
-            directionalLight2.target = new THREE.Object3D();
-            scene.add(directionalLight2);
-
-        var planeMaterial = new THREE.MeshBasicMaterial({ color: "#FFFFFF" });
-        var plane = new THREE.Mesh(new THREE.PlaneBufferGeometry(2000, 2000), planeMaterial);
-        plane.rotateX(- Math.PI / 2);
-        scene.add(plane);
-
-
-
-
-
-
-
-
-        var RenderableBoxes = [];
-        var container = new Container();
-
-
-
-
-        var containerMesh = null;
 
         function containerChanged() {
-            var containerWidth = parseFloat($("#container-width-input").val())
-            var containerHeight = parseFloat($("#container-height-input").val())
-            var containerDepth = parseFloat($("#container-depth-input").val())
+            // read dimensions of container
+            var width = parseFloat($("#container-width-input").val())
+            var height = parseFloat($("#container-height-input").val())
+            var depth = parseFloat($("#container-depth-input").val())
 
-            container.size = new Vector3D(containerWidth, containerHeight, containerDepth);
-
-            controls.target.set(container.size.x / 2, container.size.y / 2, container.size.z / 2);
-
-            var material = new THREE.LineBasicMaterial({
-                color: 0x0,
-                linewidth: 1,
-            });
-            var geometry = new THREE.EdgesGeometry(new THREE.BoxGeometry(container.size.x, container.size.y, container.size.z));
-            if (containerMesh)
-                scene.remove(containerMesh);
-            containerMesh = new THREE.LineSegments(geometry, material);
-            containerMesh.position.x = container.size.x / 2;
-            containerMesh.position.y = container.size.y / 2;
-            containerMesh.position.z = container.size.z / 2;
-            scene.add(containerMesh);
-            renderer.render(scene, camera);
+            // set size of container
+            container.changeSize(width, height, depth);
         }
+
+        // initialize the container with default value of inputs
         containerChanged();
+
         $(document).on("input propertychange", "#container-width-input", containerChanged);
         $(document).on("input propertychange", "#container-height-input", containerChanged);
         $(document).on("input propertychange", "#container-depth-input", containerChanged);
 
 
-        $('#solve-button').click(function () {
+        $('#solve-button').click(() => {
             generateX = 0;
             container.makeEmpty();
-            var solver = new BinPackingSolver(container, RenderableBoxes);
-            RenderableBoxes.forEach(b => b.mesh.visible = false);
+            var solver = new BinPackingSolver(container, boxes);
+
+            // hide all boxes
+            container.boxes.forEach(b => b.visible = false);
+            // show spinner
             $('#spinner').css("display", "inline-block");
-            
-            // avoid spinner from jammed
+
+            // timmer to avoid spinner be jammed
             setTimeout(() => {
-                var left = solver.solve();
-                console.log(left);
+                // solve() will return the boxes doesn't fit into container
+                var boxesDoseNotFit = solver.solve();
+                // stop the spinner
                 $('#spinner').css("display", "none");
-                renderer.render(scene, camera);
+                
                 var i = 0;
                 function anim() {
-                    container.boxes[i].render();
-                    container.boxes[i].mesh.visible = true;
+                    // show one box at a time
+                    container.boxes[i].visible = true;
                     i++;
                     if (i < container.boxes.length)
-                        setTimeout(anim, 20);
-                }  
-                if(container.boxes.length != 0)
+                        setTimeout(anim, 200);
+                }
+
+                // start animation if there are any boxes in the container
+                if (container.boxes.length != 0) {
                     anim()
+                }
             }, 10)
         });
 
